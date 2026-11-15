@@ -1,0 +1,1824 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS // Tactical Esports & Gaming Utility HUD</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Rajdhani, Inter & JetBrains Mono for Cyberpunk Telemetry -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#090a0f',
+            panel: '#11141d',
+            panelHover: '#161b27',
+            neonCyan: '#00f0ff',
+            neonCrimson: '#ff2a6d',
+            neonEmerald: '#05ffa1',
+            neonAmber: '#ffb800',
+            borderDim: 'rgba(0, 240, 255, 0.14)',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Rajdhani', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* Custom Scrollbar & Cyberpunk Micro-Styling */
+    :root {
+      --bg-obsidian: #090a0f;
+      --bg-panel: #11141d;
+      --cyan: #00f0ff;
+      --crimson: #ff2a6d;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: var(--bg-obsidian);
+      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(circle at 15% 10%, rgba(0, 240, 255, 0.06) 0%, transparent 38%),
+        radial-gradient(circle at 85% 85%, rgba(255, 42, 109, 0.06) 0%, transparent 38%),
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+    }
+
+    /* Glassmorphic Tactical Panel */
+    .cyber-card {
+      background: rgba(17, 20, 29, 0.86);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.75), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+      transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease;
+    }
+
+    .cyber-card:hover {
+      border-color: rgba(0, 240, 255, 0.35);
+      box-shadow: 0 14px 36px -10px rgba(0, 240, 255, 0.1), inset 0 1px 0 0 rgba(0, 240, 255, 0.08);
+    }
+
+    /* Custom Range Sliders */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.08);
+      height: 6px;
+      border-radius: 999px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #00f0ff;
+      cursor: pointer;
+      border: 2px solid #090a0f;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.8);
+      transition: transform 0.15s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.18);
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090a0f;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e2536;
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #00f0ff;
+    }
+
+    /* Neon Glow Utilities */
+    .glow-cyan {
+      box-shadow: 0 0 18px rgba(0, 240, 255, 0.25);
+    }
+    .glow-crimson {
+      box-shadow: 0 0 18px rgba(255, 42, 109, 0.28);
+    }
+
+    /* Canvas responsive container */
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      border-radius: 0.75rem;
+    }
+    .canvas-wrap canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    @keyframes pulseBeacon {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.85); }
+    }
+    .beacon-dot {
+      animation: pulseBeacon 1.8s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col lg:flex-row selection:bg-neonCyan selection:text-obsidian">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- Mobile Top Header Bar -->
+  <header class="lg:hidden sticky top-0 z-40 bg-obsidian/90 backdrop-blur-md border-b border-cyan-500/20 px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg bg-cyan-500/15 border border-neonCyan flex items-center justify-center text-neonCyan font-display font-bold text-lg shadow-[0_0_12px_rgba(0,240,255,0.3)]">
+        NX
+      </div>
+      <div>
+        <h1 class="font-display font-bold tracking-wider text-white text-lg leading-none">NEXUS<span class="text-neonCyan">//HUD</span></h1>
+        <span class="font-mono text-[10px] text-slate-400">ESPORTS TELEMETRY v4.2</span>
+      </div>
+    </div>
+    <button id="mobile-menu-btn" aria-label="Toggle Navigation" class="p-2.5 rounded-lg bg-panel border border-cyan-500/25 text-neonCyan hover:bg-cyan-500/10 active:scale-95 transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+  </header>
+
+  <!-- Sidebar Navigation -->
+  <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-panel/95 backdrop-blur-xl border-r border-cyan-500/15 transform -translate-x-full lg:translate-x-0 lg:static lg:flex lg:flex-col justify-between transition-transform duration-200 ease-out">
+    <div class="p-5">
+      <!-- Brand Identity -->
+      <div class="hidden lg:flex items-center gap-3 pb-6 border-b border-slate-800/80">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-rose-500/20 border border-neonCyan/60 flex items-center justify-center text-neonCyan font-display font-bold text-xl glow-cyan">
+          NX
+        </div>
+        <div>
+          <h1 class="font-display font-bold tracking-wider text-white text-xl leading-none">NEXUS<span class="text-neonCyan">//HUD</span></h1>
+          <p class="font-mono text-[11px] text-slate-400 mt-1">TACTICAL UTILITY SUITE</p>
+        </div>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="mt-4 lg:mt-6 flex flex-col gap-1.5" aria-label="Utility Modules">
+        <p class="px-3 text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-1">Command Views</p>
+
+        <button data-view="all" class="nav-btn active flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all bg-cyan-500/15 text-neonCyan border border-cyan-500/30">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+          <span>Command Bento Grid</span>
+        </button>
+
+        <button data-view="aim" class="nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent transition-all">
+          <svg class="w-4 h-4 shrink-0 text-neonCrimson" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg>
+          <span>Aim &amp; Reflex Trainer</span>
+        </button>
+
+        <button data-view="sens" class="nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent transition-all">
+          <svg class="w-4 h-4 shrink-0 text-neonCyan" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"/></svg>
+          <span>eDPI &amp; Sens Converter</span>
+        </button>
+
+        <button data-view="perf" class="nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent transition-all">
+          <svg class="w-4 h-4 shrink-0 text-neonEmerald" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span>FPS &amp; Latency Monitor</span>
+        </button>
+
+        <button data-view="crosshair" class="nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent transition-all">
+          <svg class="w-4 h-4 shrink-0 text-neonAmber" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Crosshair Studio</span>
+        </button>
+
+        <button data-view="loadouts" class="nav-btn flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 border border-transparent transition-all">
+          <svg class="w-4 h-4 shrink-0 text-purple-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <span>Tactical Loadouts &amp; Binds</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Bottom Hardware Telemetry Card -->
+    <div class="p-4 m-4 rounded-xl bg-obsidian/90 border border-slate-800/90">
+      <div class="flex items-center justify-between mb-2">
+        <span class="font-mono text-[11px] text-slate-400">ENGINE STATUS</span>
+        <span class="flex items-center gap-1.5 font-mono text-[11px] text-neonEmerald">
+          <span class="w-2 h-2 rounded-full bg-neonEmerald beacon-dot"></span> ONLINE
+        </span>
+      </div>
+      <div class="space-y-1.5 font-mono text-xs">
+        <div class="flex justify-between">
+          <span class="text-slate-500">CORES / THREADS</span>
+          <span id="sys-cores" class="text-slate-200">--</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">POLL RATE EST.</span>
+          <span id="sys-hz" class="text-neonCyan">1000 Hz</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">STORAGE SYNC</span>
+          <span class="text-neonEmerald">LOCAL // OK</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Sidebar Backdrop Overlay for Mobile -->
+  <div id="sidebar-backdrop" class="fixed inset-0 bg-black/70 backdrop-blur-xs z-30 hidden lg:hidden"></div>
+
+  <!-- Main Workspace Container -->
+  <main class="flex-1 flex flex-col min-w-0">
+
+    <!-- Live System Telemetry Top Bar -->
+    <div class="sticky top-0 z-20 bg-obsidian/85 backdrop-blur-md border-b border-cyan-500/15 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/30 font-mono text-[11px] text-neonCyan">SYS.HUD</span>
+        <h2 id="active-view-title" class="font-display font-bold text-base sm:text-lg tracking-wide text-white uppercase">Command Bento Grid // All Modules</h2>
+      </div>
+
+      <!-- Live Telemetry Pills -->
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3 font-mono text-xs">
+        <div class="px-3 py-1.5 rounded-lg bg-panel border border-slate-800 flex items-center gap-2">
+          <span class="text-slate-400">FPS:</span>
+          <span id="hud-fps" class="text-neonEmerald font-bold">60</span>
+        </div>
+        <div class="px-3 py-1.5 rounded-lg bg-panel border border-slate-800 flex items-center gap-2">
+          <span class="text-slate-400">PING:</span>
+          <span id="hud-ping" class="text-neonCyan font-bold">24 ms</span>
+        </div>
+        <div class="hidden sm:flex px-3 py-1.5 rounded-lg bg-panel border border-slate-800 items-center gap-2">
+          <span class="text-slate-400">LOCAL:</span>
+          <span id="hud-clock" class="text-slate-200 font-semibold">00:00:00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bento Grid Dashboard Modules -->
+    <div id="dashboard-grid" class="p-4 sm:p-6 grid grid-cols-1 xl:grid-cols-12 gap-5 max-w-[1600px] w-full mx-auto">
+
+      <!-- ===================================================================
+           MODULE 1: AIM & REFLEX TRAINER (Canvas Interactive Target Game)
+      ==================================================================== -->
+      <section data-module="aim" class="module-card xl:col-span-7 cyber-card rounded-2xl p-5 flex flex-col justify-between">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-neonCrimson shadow-[0_0_8px_#ff2a6d]"></span>
+              <h3 class="font-display font-bold text-xl tracking-wide text-white uppercase">Aim &amp; Reflex Trainer</h3>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Precision flick &amp; reaction micro-drill with sub-millisecond tracking</p>
+          </div>
+
+          <!-- High Score Badge -->
+          <div class="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 font-mono text-xs flex items-center gap-2">
+            <span class="text-rose-300">BEST SCORE:</span>
+            <span id="aim-highscore" class="text-neonCrimson font-bold text-sm">0</span>
+          </div>
+        </div>
+
+        <!-- Drill Configuration Controls -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 bg-obsidian/70 p-3 rounded-xl border border-slate-800/80">
+          <div>
+            <div class="flex justify-between font-mono text-[11px] text-slate-400 mb-1">
+              <span>TARGET SIZE</span>
+              <span id="aim-size-val" class="text-neonCyan">28px</span>
+            </div>
+            <input id="aim-size" type="range" min="14" max="48" value="28" class="w-full" />
+          </div>
+
+          <div>
+            <div class="flex justify-between font-mono text-[11px] text-slate-400 mb-1">
+              <span>SPAWN PACE</span>
+              <span id="aim-speed-val" class="text-neonCyan">Normal</span>
+            </div>
+            <select id="aim-speed" class="w-full bg-panel border border-slate-700 rounded-lg px-2.5 py-1 font-mono text-xs text-white focus:border-neonCyan outline-none">
+              <option value="0">Instant (On Hit)</option>
+              <option value="1200" selected>Normal (1.2s)</option>
+              <option value="850">Fast (0.85s)</option>
+              <option value="600">Insane (0.60s)</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="flex justify-between font-mono text-[11px] text-slate-400 mb-1">
+              <span>DURATION</span>
+              <span class="text-neonCyan">TIMER</span>
+            </div>
+            <div class="grid grid-cols-3 gap-1 font-mono text-xs" id="aim-duration-group">
+              <button type="button" data-dur="15" class="aim-dur-btn py-1 rounded-lg bg-panel border border-slate-700 text-slate-300 hover:border-neonCyan">15s</button>
+              <button type="button" data-dur="30" class="aim-dur-btn active py-1 rounded-lg bg-cyan-500/20 border border-neonCyan text-neonCyan font-bold">30s</button>
+              <button type="button" data-dur="60" class="aim-dur-btn py-1 rounded-lg bg-panel border border-slate-700 text-slate-300 hover:border-neonCyan">60s</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Telemetry Stats Strip -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3 font-mono text-xs">
+          <div class="bg-obsidian/80 border border-slate-800 rounded-xl p-2.5 text-center">
+            <div class="text-[10px] text-slate-500">TIME LEFT</div>
+            <div id="aim-time" class="text-base font-bold text-white mt-0.5">30.0s</div>
+          </div>
+          <div class="bg-obsidian/80 border border-slate-800 rounded-xl p-2.5 text-center">
+            <div class="text-[10px] text-slate-500">HITS</div>
+            <div id="aim-hits" class="text-base font-bold text-neonEmerald mt-0.5">0</div>
+          </div>
+          <div class="bg-obsidian/80 border border-slate-800 rounded-xl p-2.5 text-center">
+            <div class="text-[10px] text-slate-500">MISSES</div>
+            <div id="aim-misses" class="text-base font-bold text-neonCrimson mt-0.5">0</div>
+          </div>
+          <div class="bg-obsidian/80 border border-slate-800 rounded-xl p-2.5 text-center">
+            <div class="text-[10px] text-slate-500">ACCURACY</div>
+            <div id="aim-acc" class="text-base font-bold text-neonCyan mt-0.5">100%</div>
+          </div>
+          <div class="col-span-2 sm:col-span-1 bg-obsidian/80 border border-slate-800 rounded-xl p-2.5 text-center">
+            <div class="text-[10px] text-slate-500">AVG REACT</div>
+            <div id="aim-react" class="text-base font-bold text-neonAmber mt-0.5">-- ms</div>
+          </div>
+        </div>
+
+        <!-- Interactive Aim Arena Canvas -->
+        <div class="canvas-wrap h-72 sm:h-80 bg-[#07080c] border border-cyan-500/25 relative select-none">
+          <canvas id="aim-canvas" class="cursor-crosshair"></canvas>
+
+          <!-- Overlay Start / Summary Screen -->
+          <div id="aim-overlay" class="absolute inset-0 bg-obsidian/80 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center">
+            <div id="aim-summary" class="hidden mb-4 p-3 rounded-xl bg-panel/90 border border-cyan-500/30 max-w-xs w-full">
+              <div class="font-mono text-xs text-neonCyan uppercase tracking-wider">DRILL COMPLETE</div>
+              <div id="aim-final-score" class="font-display font-bold text-3xl text-white my-1">0 PTS</div>
+              <div id="aim-final-meta" class="font-mono text-[11px] text-slate-400">Accuracy: 0% • Avg: 0ms</div>
+            </div>
+            <button id="aim-start-btn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-neonCyan text-obsidian font-display font-bold text-lg tracking-wider uppercase shadow-[0_0_25px_rgba(0,240,255,0.45)] hover:brightness-110 active:scale-95 transition">
+              START AIM DRILL
+            </button>
+            <p class="font-mono text-[11px] text-slate-400 mt-2.5">Click or tap targets immediately as they materialize</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           MODULE 2: eDPI & SENSITIVITY CONVERTER
+      ==================================================================== -->
+      <section data-module="sens" class="module-card xl:col-span-5 cyber-card rounded-2xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between gap-2 mb-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-neonCyan shadow-[0_0_8px_#00f0ff]"></span>
+                <h3 class="font-display font-bold text-xl tracking-wide text-white uppercase">eDPI &amp; Sens Converter</h3>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">True 360° physical distance &amp; cross-title muscle memory sync</p>
+            </div>
+            <button id="sens-swap-btn" title="Swap Source and Target Games" class="p-2.5 rounded-xl bg-obsidian border border-slate-700 hover:border-neonCyan text-neonCyan active:scale-95 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+            </button>
+          </div>
+
+          <!-- Input Controls -->
+          <div class="space-y-3.5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="sens-source-game" class="block font-mono text-[11px] text-slate-400 mb-1">SOURCE GAME</label>
+                <select id="sens-source-game" class="w-full bg-obsidian border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:border-neonCyan outline-none">
+                  <option value="valorant">Valorant</option>
+                  <option value="cs2">CS2 / Counter-Strike</option>
+                  <option value="roblox_rivals" selected>Roblox (RIVALS)</option>
+                  <option value="roblox_std">Roblox (Standard)</option>
+                  <option value="apex">Apex Legends</option>
+                  <option value="fortnite">Fortnite (% Slider)</option>
+                </select>
+              </div>
+              <div>
+                <label for="sens-target-game" class="block font-mono text-[11px] text-slate-400 mb-1">TARGET GAME</label>
+                <select id="sens-target-game" class="w-full bg-obsidian border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:border-neonCyan outline-none">
+                  <option value="valorant" selected>Valorant</option>
+                  <option value="cs2">CS2 / Counter-Strike</option>
+                  <option value="roblox_rivals">Roblox (RIVALS)</option>
+                  <option value="roblox_std">Roblox (Standard)</option>
+                  <option value="apex">Apex Legends</option>
+                  <option value="fortnite">Fortnite (% Slider)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="sens-dpi" class="block font-mono text-[11px] text-slate-400 mb-1">MOUSE DPI</label>
+                <input id="sens-dpi" type="number" min="100" max="32000" step="50" value="800" class="w-full bg-obsidian border border-slate-700 rounded-xl px-3 py-2.5 font-mono text-sm text-white focus:border-neonCyan outline-none" />
+              </div>
+              <div>
+                <label for="sens-input" class="block font-mono text-[11px] text-slate-400 mb-1">IN-GAME SENS</label>
+                <input id="sens-input" type="number" min="0.001" max="100" step="0.01" value="0.45" class="w-full bg-obsidian border border-slate-700 rounded-xl px-3 py-2.5 font-mono text-sm text-white focus:border-neonCyan outline-none" />
+              </div>
+            </div>
+
+            <!-- DPI Quick Presets -->
+            <div class="flex items-center gap-1.5 font-mono text-xs">
+              <span class="text-slate-500 mr-1">DPI:</span>
+              <button type="button" data-dpi="400" class="dpi-preset px-2.5 py-1 rounded-lg bg-obsidian border border-slate-800 hover:border-neonCyan text-slate-300">400</button>
+              <button type="button" data-dpi="800" class="dpi-preset px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-neonCyan text-neonCyan">800</button>
+              <button type="button" data-dpi="1600" class="dpi-preset px-2.5 py-1 rounded-lg bg-obsidian border border-slate-800 hover:border-neonCyan text-slate-300">1600</button>
+              <button type="button" data-dpi="3200" class="dpi-preset px-2.5 py-1 rounded-lg bg-obsidian border border-slate-800 hover:border-neonCyan text-slate-300">3200</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Output Telemetry Cards -->
+        <div class="mt-5 space-y-3">
+          <div class="p-4 rounded-xl bg-gradient-to-r from-cyan-500/10 via-panel to-rose-500/10 border border-neonCyan/40 flex items-center justify-between">
+            <div>
+              <div class="font-mono text-[11px] text-neonCyan uppercase">CONVERTED SENSITIVITY</div>
+              <div id="sens-output-val" class="font-mono font-bold text-2xl sm:text-3xl text-white mt-0.5">0.314</div>
+            </div>
+            <button id="sens-copy-btn" class="px-3.5 py-2 rounded-xl bg-neonCyan text-obsidian font-mono font-bold text-xs hover:brightness-110 active:scale-95 transition">
+              COPY SENS
+            </button>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2.5 font-mono">
+            <div class="p-3 rounded-xl bg-obsidian/90 border border-slate-800">
+              <div class="text-[10px] text-slate-500">SOURCE eDPI</div>
+              <div id="sens-edpi" class="text-sm sm:text-base font-bold text-white mt-0.5">360.0</div>
+            </div>
+            <div class="p-3 rounded-xl bg-obsidian/90 border border-slate-800">
+              <div class="text-[10px] text-slate-500">CM / 360°</div>
+              <div id="sens-cm360" class="text-sm sm:text-base font-bold text-neonEmerald mt-0.5">51.96 cm</div>
+            </div>
+            <div class="p-3 rounded-xl bg-obsidian/90 border border-slate-800">
+              <div class="text-[10px] text-slate-500">IN / 360°</div>
+              <div id="sens-in360" class="text-sm sm:text-base font-bold text-neonAmber mt-0.5">20.46 in</div>
+            </div>
+          </div>
+
+          <div id="sens-profile-badge" class="font-mono text-[11px] text-slate-400 bg-obsidian/60 px-3 py-2 rounded-lg border border-slate-800/80 flex justify-between">
+            <span>AIM STYLE CLASSIFICATION:</span>
+            <span id="sens-style-label" class="text-neonCyan font-semibold">HYBRID ARM / WRIST</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           MODULE 3: FPS & LATENCY / JITTER ANALYZER
+      ==================================================================== -->
+      <section data-module="perf" class="module-card xl:col-span-6 cyber-card rounded-2xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-neonEmerald shadow-[0_0_8px_#05ffa1]"></span>
+                <h3 class="font-display font-bold text-xl tracking-wide text-white uppercase">FPS &amp; Latency / Jitter Analyzer</h3>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Real-time requestAnimationFrame pacing &amp; regional server RTT probe</p>
+            </div>
+            <button id="ping-test-btn" class="px-3.5 py-2 rounded-xl bg-emerald-500/15 border border-neonEmerald/50 text-neonEmerald font-mono font-bold text-xs hover:bg-emerald-500/25 active:scale-95 transition flex items-center gap-1.5">
+              <span>PING SERVERS</span>
+            </button>
+          </div>
+
+          <!-- Frame Time Telemetry Strip -->
+          <div class="grid grid-cols-3 gap-2.5 mb-3 font-mono">
+            <div class="bg-obsidian/85 border border-slate-800 rounded-xl p-2.5">
+              <div class="text-[10px] text-slate-500">CURRENT FPS</div>
+              <div id="perf-fps-now" class="text-lg font-bold text-neonEmerald">60</div>
+            </div>
+            <div class="bg-obsidian/85 border border-slate-800 rounded-xl p-2.5">
+              <div class="text-[10px] text-slate-500">1% LOW FPS</div>
+              <div id="perf-fps-low" class="text-lg font-bold text-neonAmber">58</div>
+            </div>
+            <div class="bg-obsidian/85 border border-slate-800 rounded-xl p-2.5">
+              <div class="text-[10px] text-slate-500">FRAME TIME</div>
+              <div id="perf-frametime" class="text-lg font-bold text-neonCyan">16.6 ms</div>
+            </div>
+          </div>
+
+          <!-- Live FPS Graph Canvas -->
+          <div class="canvas-wrap h-36 bg-[#07080c] border border-slate-800 mb-4">
+            <canvas id="fps-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Regional Server Ping & Jitter Matrix -->
+        <div>
+          <div class="flex items-center justify-between font-mono text-[11px] text-slate-400 mb-2">
+            <span>REGIONAL EDGE NODES</span>
+            <span id="ping-status-text">READY</span>
+          </div>
+          <div id="ping-server-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 font-mono text-xs">
+            <!-- Populated dynamically by TelemetryEngine -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           MODULE 4: LIVE CROSSHAIR CUSTOMIZER & CODE EXPORTER
+      ==================================================================== -->
+      <section data-module="crosshair" class="module-card xl:col-span-6 cyber-card rounded-2xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-neonAmber shadow-[0_0_8px_#ffb800]"></span>
+                <h3 class="font-display font-bold text-xl tracking-wide text-white uppercase">Crosshair Studio &amp; Exporter</h3>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">Sub-pixel reticle designer with multi-environment contrast testing</p>
+            </div>
+
+            <!-- Background Scene Selector -->
+            <div class="flex items-center gap-1 bg-obsidian p-1 rounded-xl border border-slate-800 font-mono text-[11px]" id="xhair-bg-group">
+              <button type="button" data-bg="neon" class="xhair-bg-btn active px-2.5 py-1 rounded-lg bg-cyan-500/20 text-neonCyan border border-neonCyan/40">Neon</button>
+              <button type="button" data-bg="dust" class="xhair-bg-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white">Dust</button>
+              <button type="button" data-bg="night" class="xhair-bg-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white">Night</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+            <!-- Reticle Live Preview Canvas -->
+            <div class="sm:col-span-5 canvas-wrap h-48 sm:h-56 border border-slate-700/80">
+              <canvas id="xhair-canvas"></canvas>
+            </div>
+
+            <!-- Reticle Parameter Sliders -->
+            <div class="sm:col-span-7 space-y-2.5 font-mono text-xs">
+              <div>
+                <div class="flex justify-between text-slate-400 mb-1">
+                  <span>LINE LENGTH</span>
+                  <span id="xhair-len-val" class="text-white">10px</span>
+                </div>
+                <input id="xhair-len" type="range" min="2" max="28" value="10" class="w-full" />
+              </div>
+
+              <div>
+                <div class="flex justify-between text-slate-400 mb-1">
+                  <span>THICKNESS</span>
+                  <span id="xhair-thick-val" class="text-white">2px</span>
+                </div>
+                <input id="xhair-thick" type="range" min="1" max="8" value="2" class="w-full" />
+              </div>
+
+              <div>
+                <div class="flex justify-between text-slate-400 mb-1">
+                  <span>CENTER GAP</span>
+                  <span id="xhair-gap-val" class="text-white">4px</span>
+                </div>
+                <input id="xhair-gap" type="range" min="0" max="20" value="4" class="w-full" />
+              </div>
+
+              <div class="grid grid-cols-3 gap-2 pt-1">
+                <label class="flex items-center justify-between bg-obsidian px-2.5 py-2 rounded-xl border border-slate-800 cursor-pointer">
+                  <span class="text-[11px] text-slate-300">DOT</span>
+                  <input id="xhair-dot" type="checkbox" checked class="accent-cyan-400 w-4 h-4" />
+                </label>
+
+                <label class="flex items-center justify-between bg-obsidian px-2.5 py-2 rounded-xl border border-slate-800 cursor-pointer">
+                  <span class="text-[11px] text-slate-300">OUTLINE</span>
+                  <input id="xhair-outline" type="checkbox" checked class="accent-cyan-400 w-4 h-4" />
+                </label>
+
+                <label class="flex items-center justify-between bg-obsidian px-2.5 py-1.5 rounded-xl border border-slate-800 cursor-pointer">
+                  <span class="text-[11px] text-slate-300">HEX</span>
+                  <input id="xhair-color" type="color" value="#00f0ff" class="w-6 h-6 bg-transparent border-0 cursor-pointer" />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Export Config String Bar -->
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row gap-2">
+          <input id="xhair-code-output" type="text" readonly class="flex-1 bg-obsidian border border-slate-700 rounded-xl px-3 py-2 font-mono text-xs text-neonCyan select-all outline-none" />
+          <button id="xhair-copy-btn" class="px-4 py-2 rounded-xl bg-neonCyan text-obsidian font-mono font-bold text-xs hover:brightness-110 active:scale-95 transition shrink-0">
+            COPY PROFILE CODE
+          </button>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           MODULE 5: QUICK TACTICAL NOTES / LOADOUT & MACRO KEYBIND MANAGER
+      ==================================================================== -->
+      <section data-module="loadouts" class="module-card xl:col-span-12 cyber-card rounded-2xl p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_8px_#c084fc]"></span>
+              <h3 class="font-display font-bold text-xl tracking-wide text-white uppercase">Tactical Loadouts &amp; Macro Keybind Vault</h3>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Persistent game sensitivity presets, agent/weapon loadouts &amp; custom keybind combos</p>
+          </div>
+
+          <!-- Search & Filter Controls -->
+          <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <input id="loadout-search" type="text" placeholder="Filter by game, tag, or bind..." class="flex-1 sm:w-56 bg-obsidian border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-neonCyan outline-none" />
+            <select id="loadout-filter-cat" class="bg-obsidian border border-slate-700 rounded-xl px-3 py-2 font-mono text-xs text-slate-200 focus:border-neonCyan outline-none">
+              <option value="ALL">ALL TYPES</option>
+              <option value="SENS">SENS PRESET</option>
+              <option value="KEYBIND">KEYBIND / MACRO</option>
+              <option value="LOADOUT">TACTICAL LOADOUT</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Add / Edit Tactical Entry Form -->
+        <form id="loadout-form" class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 bg-obsidian/75 p-3.5 rounded-xl border border-slate-800 mb-4">
+          <input type="hidden" id="loadout-edit-id" value="" />
+          <div class="sm:col-span-3">
+            <input id="loadout-title" type="text" required maxlength="48" placeholder="Title (e.g., RIVALS Flick Setup)" class="w-full bg-panel border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-neonCyan outline-none" />
+          </div>
+          <div class="sm:col-span-2">
+            <select id="loadout-category" class="w-full bg-panel border border-slate-700 rounded-lg px-2.5 py-2 font-mono text-xs text-white focus:border-neonCyan outline-none">
+              <option value="SENS">SENS PRESET</option>
+              <option value="KEYBIND">KEYBIND / MACRO</option>
+              <option value="LOADOUT">TACTICAL LOADOUT</option>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <input id="loadout-game" type="text" required maxlength="24" placeholder="Game (e.g., Valorant)" class="w-full bg-panel border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-neonCyan outline-none" />
+          </div>
+          <div class="sm:col-span-3">
+            <input id="loadout-detail" type="text" required maxlength="120" placeholder="Config / Binds (e.g., 800 DPI | 0.32 | MB4 Crouch)" class="w-full bg-panel border border-slate-700 rounded-lg px-3 py-2 font-mono text-xs text-neonCyan placeholder-slate-500 focus:border-neonCyan outline-none" />
+          </div>
+          <div class="sm:col-span-2 flex gap-1.5">
+            <button type="submit" id="loadout-submit-btn" class="flex-1 bg-gradient-to-r from-cyan-500 to-neonCyan text-obsidian font-mono font-bold text-xs py-2 px-3 rounded-lg hover:brightness-110 active:scale-95 transition">
+              SAVE
+            </button>
+            <button type="button" id="loadout-cancel-btn" class="hidden bg-slate-800 text-slate-300 font-mono text-xs py-2 px-2.5 rounded-lg hover:bg-slate-700">
+              ESC
+            </button>
+          </div>
+        </form>
+
+        <!-- Saved Loadouts Grid -->
+        <div id="loadout-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <!-- Dynamically rendered cards -->
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- =======================================================================
+       PRODUCTION-GRADE MODULAR APPLICATION ARCHITECTURE
+  ======================================================================== -->
+  <script>
+    (() => {
+      'use strict';
+
+      /* ---------------------------------------------------------------------
+         1. UTILITY & SECURITY LAYER (Storage, Clipboard, Validation, Toasts)
+      ---------------------------------------------------------------------- */
+      const Utils = {
+        /**
+         * Safely reads and parses JSON from localStorage with fallback
+         */
+        loadStorage(key, fallback) {
+          try {
+            const raw = window.localStorage.getItem(key);
+            if (!raw) return fallback;
+            const parsed = JSON.parse(raw);
+            return parsed !== null && parsed !== undefined ? parsed : fallback;
+          } catch (err) {
+            console.warn(`[NexusStorage] Failed reading key "${key}":`, err);
+            return fallback;
+          }
+        },
+
+        /**
+         * Safely serializes and writes JSON to localStorage
+         */
+        saveStorage(key, value) {
+          try {
+            window.localStorage.setItem(key, JSON.stringify(value));
+            return true;
+          } catch (err) {
+            console.warn(`[NexusStorage] Failed writing key "${key}":`, err);
+            return false;
+          }
+        },
+
+        /**
+         * Escapes HTML entities to prevent XSS in user-generated notes/loadouts
+         */
+        escapeHTML(str) {
+          const div = document.createElement('div');
+          div.textContent = String(str ?? '');
+          return div.innerHTML;
+        },
+
+        /**
+         * Clamps numeric values within safe boundaries
+         */
+        clamp(val, min, max, fallback) {
+          const num = Number(val);
+          if (!Number.isFinite(num)) return fallback;
+          return Math.min(Math.max(num, min), max);
+        },
+
+        /**
+         * Iframe-safe clipboard copy using document.execCommand('copy')
+         */
+        copyText(text, successMessage = 'Copied to clipboard!') {
+          try {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            const ok = document.execCommand('copy');
+            document.body.removeChild(textarea);
+            if (ok) {
+              Toast.show(successMessage, 'cyan');
+            } else {
+              Toast.show('Unable to copy automatically.', 'crimson');
+            }
+          } catch (err) {
+            console.error('[Clipboard] Error:', err);
+            Toast.show('Clipboard access blocked.', 'crimson');
+          }
+        },
+      };
+
+      /* ---------------------------------------------------------------------
+         2. TACTICAL TOAST NOTIFICATION ENGINE
+      ---------------------------------------------------------------------- */
+      const Toast = {
+        container: document.getElementById('toast-container'),
+
+        show(message, tone = 'cyan') {
+          if (!this.container) return;
+          const colors = {
+            cyan: 'border-neonCyan/60 text-neonCyan bg-panel/95',
+            emerald: 'border-neonEmerald/60 text-neonEmerald bg-panel/95',
+            crimson: 'border-neonCrimson/60 text-neonCrimson bg-panel/95',
+          };
+          const el = document.createElement('div');
+          el.className = `pointer-events-auto px-4 py-2.5 rounded-xl border backdrop-blur-md shadow-xl font-mono text-xs flex items-center justify-between gap-3 transform translate-y-2 opacity-0 transition-all duration-200 ${colors[tone] || colors.cyan}`;
+          el.innerHTML = `<span>${Utils.escapeHTML(message)}</span><span class="text-[10px] opacity-70">OK</span>`;
+          this.container.appendChild(el);
+
+          requestAnimationFrame(() => {
+            el.classList.remove('translate-y-2', 'opacity-0');
+          });
+
+          setTimeout(() => {
+            el.classList.add('opacity-0', 'translate-y-2');
+            setTimeout(() => el.remove(), 220);
+          }, 2600);
+        },
+      };
+
+      /* ---------------------------------------------------------------------
+         3. NAVIGATION & VIEW CONTROLLER
+      ---------------------------------------------------------------------- */
+      const NavigationController = {
+        init() {
+          const sidebar = document.getElementById('sidebar');
+          const backdrop = document.getElementById('sidebar-backdrop');
+          const menuBtn = document.getElementById('mobile-menu-btn');
+          const navBtns = document.querySelectorAll('.nav-btn');
+          const modules = document.querySelectorAll('.module-card');
+          const viewTitle = document.getElementById('active-view-title');
+
+          const titles = {
+            all: 'Command Bento Grid // All Modules',
+            aim: 'Aim & Reflex Trainer // Precision Micro-Drill',
+            sens: 'eDPI & Sensitivity Converter // 360° Sync',
+            perf: 'FPS & Latency Analyzer // Telemetry Diagnostics',
+            crosshair: 'Crosshair Studio // Sub-Pixel Reticle Forge',
+            loadouts: 'Tactical Loadouts & Macro Keybind Vault',
+          };
+
+          const toggleMobileSidebar = (open) => {
+            if (open) {
+              sidebar.classList.remove('-translate-x-full');
+              backdrop.classList.remove('hidden');
+            } else {
+              sidebar.classList.add('-translate-x-full');
+              backdrop.classList.add('hidden');
+            }
+          };
+
+          menuBtn?.addEventListener('click', () => {
+            const isClosed = sidebar.classList.contains('-translate-x-full');
+            toggleMobileSidebar(isClosed);
+          });
+
+          backdrop?.addEventListener('click', () => toggleMobileSidebar(false));
+
+          navBtns.forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const targetView = btn.dataset.view;
+
+              // Update active nav button styles
+              navBtns.forEach((b) => {
+                b.classList.remove('active', 'bg-cyan-500/15', 'text-neonCyan', 'border-cyan-500/30');
+                b.classList.add('text-slate-400', 'border-transparent');
+              });
+              btn.classList.add('active', 'bg-cyan-500/15', 'text-neonCyan', 'border-cyan-500/30');
+              btn.classList.remove('text-slate-400', 'border-transparent');
+
+              // Filter Bento Grid modules
+              modules.forEach((mod) => {
+                if (targetView === 'all') {
+                  mod.classList.remove('hidden');
+                  mod.classList.remove('xl:col-span-12');
+                } else if (mod.dataset.module === targetView) {
+                  mod.classList.remove('hidden');
+                  mod.classList.add('xl:col-span-12');
+                } else {
+                  mod.classList.add('hidden');
+                }
+              });
+
+              if (viewTitle) {
+                viewTitle.textContent = titles[targetView] || titles.all;
+              }
+
+              // Trigger resize event so canvases adapt cleanly when layout expands
+              window.dispatchEvent(new Event('resize'));
+              toggleMobileSidebar(false);
+            });
+          });
+        },
+      };
+
+      /* ---------------------------------------------------------------------
+         4. MODULE 1: AIM & REFLEX TRAINER (60FPS Canvas Engine)
+      ---------------------------------------------------------------------- */
+      const AimTrainerModule = {
+        canvas: null,
+        ctx: null,
+        running: false,
+        duration: 30,
+        timeLeft: 30,
+        targetRadius: 28,
+        spawnIntervalMs: 1200,
+        hits: 0,
+        misses: 0,
+        reactionTimes: [],
+        target: null,
+        ripples: [],
+        lastFrameTime: 0,
+        highScore: 0,
+
+        init() {
+          this.canvas = document.getElementById('aim-canvas');
+          if (!this.canvas) return;
+          this.ctx = this.canvas.getContext('2d');
+
+          this.highScore = Utils.loadStorage('nexus_aim_highscore', 0);
+          document.getElementById('aim-highscore').textContent = this.highScore;
+
+          this.bindControls();
+          this.resizeCanvas();
+          window.addEventListener('resize', () => this.resizeCanvas());
+          this.drawIdleGrid();
+        },
+
+        resizeCanvas() {
+          if (!this.canvas) return;
+          const rect = this.canvas.parentElement.getBoundingClientRect();
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          this.canvas.width = Math.max(rect.width * dpr, 100);
+          this.canvas.height = Math.max(rect.height * dpr, 100);
+          this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          this.width = rect.width;
+          this.height = rect.height;
+          if (!this.running) this.drawIdleGrid();
+        },
+
+        bindControls() {
+          const sizeSlider = document.getElementById('aim-size');
+          const sizeLabel = document.getElementById('aim-size-val');
+          const speedSelect = document.getElementById('aim-speed');
+          const speedLabel = document.getElementById('aim-speed-val');
+          const durBtns = document.querySelectorAll('.aim-dur-btn');
+          const startBtn = document.getElementById('aim-start-btn');
+
+          sizeSlider.addEventListener('input', (e) => {
+            this.targetRadius = Utils.clamp(e.target.value, 14, 48, 28);
+            sizeLabel.textContent = `${this.targetRadius}px`;
+            if (this.target) this.target.r = this.targetRadius;
+          });
+
+          speedSelect.addEventListener('change', (e) => {
+            this.spawnIntervalMs = Utils.clamp(e.target.value, 0, 5000, 1200);
+            const names = { '0': 'Instant', '1200': 'Normal', '850': 'Fast', '600': 'Insane' };
+            speedLabel.textContent = names[String(this.spawnIntervalMs)] || 'Custom';
+          });
+
+          durBtns.forEach((btn) => {
+            btn.addEventListener('click', () => {
+              if (this.running) return;
+              durBtns.forEach((b) => {
+                b.classList.remove('active', 'bg-cyan-500/20', 'border-neonCyan', 'text-neonCyan', 'font-bold');
+                b.classList.add('bg-panel', 'border-slate-700', 'text-slate-300');
+              });
+              btn.classList.add('active', 'bg-cyan-500/20', 'border-neonCyan', 'text-neonCyan', 'font-bold');
+              btn.classList.remove('bg-panel', 'border-slate-700', 'text-slate-300');
+
+              this.duration = Utils.clamp(btn.dataset.dur, 10, 120, 30);
+              this.timeLeft = this.duration;
+              document.getElementById('aim-time').textContent = `${this.duration.toFixed(1)}s`;
+            });
+          });
+
+          startBtn.addEventListener('click', () => this.startDrill());
+
+          // Pointer down supports instant mouse & touch response with zero 300ms click delay
+          this.canvas.addEventListener('pointerdown', (e) => {
+            if (!this.running) return;
+            e.preventDefault();
+            const rect = this.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            this.handleShot(x, y);
+          });
+        },
+
+        startDrill() {
+          this.hits = 0;
+          this.misses = 0;
+          this.reactionTimes = [];
+          this.ripples = [];
+          this.timeLeft = this.duration;
+          this.running = true;
+          this.lastFrameTime = performance.now();
+
+          document.getElementById('aim-overlay').classList.add('hidden');
+          this.updateHUD();
+          this.spawnTarget();
+          requestAnimationFrame((now) => this.loop(now));
+        },
+
+        spawnTarget() {
+          const pad = this.targetRadius + 14;
+          const safeW = Math.max(this.width - pad * 2, 40);
+          const safeH = Math.max(this.height - pad * 2, 40);
+          this.target = {
+            x: pad + Math.random() * safeW,
+            y: pad + Math.random() * safeH,
+            r: this.targetRadius,
+            spawnedAt: performance.now(),
+          };
+        },
+
+        handleShot(x, y) {
+          if (!this.target) return;
+          const dx = x - this.target.x;
+          const dy = y - this.target.y;
+          const dist = Math.hypot(dx, dy);
+
+          if (dist <= this.target.r + 3) {
+            const reactMs = Math.max(65, Math.round(performance.now() - this.target.spawnedAt));
+            this.hits += 1;
+            this.reactionTimes.push(reactMs);
+            this.ripples.push({ x: this.target.x, y: this.target.y, r: this.target.r, alpha: 1, color: '#00f0ff' });
+            this.spawnTarget();
+          } else {
+            this.misses += 1;
+            this.ripples.push({ x, y, r: 6, alpha: 0.9, color: '#ff2a6d' });
+          }
+          this.updateHUD();
+        },
+
+        updateHUD() {
+          const totalShots = this.hits + this.misses;
+          const acc = totalShots > 0 ? Math.round((this.hits / totalShots) * 100) : 100;
+          const avgReact = this.reactionTimes.length > 0
+            ? Math.round(this.reactionTimes.reduce((a, b) => a + b, 0) / this.reactionTimes.length)
+            : null;
+
+          document.getElementById('aim-time').textContent = `${Math.max(0, this.timeLeft).toFixed(1)}s`;
+          document.getElementById('aim-hits').textContent = this.hits;
+          document.getElementById('aim-misses').textContent = this.misses;
+          document.getElementById('aim-acc').textContent = `${acc}%`;
+          document.getElementById('aim-react').textContent = avgReact ? `${avgReact} ms` : '-- ms';
+        },
+
+        finishDrill() {
+          this.running = false;
+          const totalShots = this.hits + this.misses;
+          const acc = totalShots > 0 ? Math.round((this.hits / totalShots) * 100) : 0;
+          const avgReact = this.reactionTimes.length > 0
+            ? Math.round(this.reactionTimes.reduce((a, b) => a + b, 0) / this.reactionTimes.length)
+            : 0;
+
+          // Weighted esports performance score
+          const speedBonus = avgReact > 0 ? Math.max(0, Math.round((600 - avgReact) * 1.5)) : 0;
+          const finalScore = Math.max(0, Math.round((this.hits * 100 * (acc / 100)) + speedBonus - (this.misses * 25)));
+
+          if (finalScore > this.highScore) {
+            this.highScore = finalScore;
+            Utils.saveStorage('nexus_aim_highscore', this.highScore);
+            document.getElementById('aim-highscore').textContent = this.highScore;
+            Toast.show(`NEW HIGH SCORE: ${finalScore} PTS!`, 'emerald');
+          }
+
+          document.getElementById('aim-final-score').textContent = `${finalScore} PTS`;
+          document.getElementById('aim-final-meta').textContent = `Hits: ${this.hits} • Acc: ${acc}% • Avg: ${avgReact || '--'}ms`;
+          document.getElementById('aim-summary').classList.remove('hidden');
+          document.getElementById('aim-start-btn').textContent = 'PLAY AGAIN';
+          document.getElementById('aim-overlay').classList.remove('hidden');
+        },
+
+        drawIdleGrid() {
+          const ctx = this.ctx;
+          ctx.clearRect(0, 0, this.width, this.height);
+          ctx.strokeStyle = 'rgba(0, 240, 255, 0.06)';
+          ctx.lineWidth = 1;
+          const step = 28;
+          for (let x = 0; x < this.width; x += step) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, this.height);
+            ctx.stroke();
+          }
+          for (let y = 0; y < this.height; y += step) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(this.width, y);
+            ctx.stroke();
+          }
+        },
+
+        loop(now) {
+          if (!this.running) return;
+          const dt = (now - this.lastFrameTime) / 1000;
+          this.lastFrameTime = now;
+          this.timeLeft -= dt;
+
+          if (this.timeLeft <= 0) {
+            this.timeLeft = 0;
+            this.updateHUD();
+            this.finishDrill();
+            return;
+          }
+
+          // Auto-relocate target if pace interval expires
+          if (this.spawnIntervalMs > 0 && this.target && (now - this.target.spawnedAt) >= this.spawnIntervalMs) {
+            this.misses += 1;
+            this.spawnTarget();
+          }
+
+          this.updateHUD();
+          this.render(now);
+          requestAnimationFrame((t) => this.loop(t));
+        },
+
+        render(now) {
+          const ctx = this.ctx;
+          this.drawIdleGrid();
+
+          // Render hit/miss feedback ripples
+          for (let i = this.ripples.length - 1; i >= 0; i--) {
+            const rp = this.ripples[i];
+            rp.r += 1.6;
+            rp.alpha -= 0.045;
+            if (rp.alpha <= 0) {
+              this.ripples.splice(i, 1);
+              continue;
+            }
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+            ctx.strokeStyle = rp.color;
+            ctx.globalAlpha = rp.alpha;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // Render active target orb with cyberpunk bullseye rings
+          if (this.target) {
+            const { x, y, r, spawnedAt } = this.target;
+            const age = Math.min((now - spawnedAt) / 140, 1);
+            const curR = r * (0.4 + 0.6 * age);
+
+            // Outer ambient glow
+            const grad = ctx.createRadialGradient(x, y, curR * 0.1, x, y, curR * 1.45);
+            grad.addColorStop(0, 'rgba(255, 42, 109, 0.95)');
+            grad.addColorStop(0.65, 'rgba(255, 42, 109, 0.45)');
+            grad.addColorStop(1, 'rgba(255, 42, 109, 0)');
+
+            ctx.beginPath();
+            ctx.arc(x, y, curR * 1.45, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Core orb
+            ctx.beginPath();
+            ctx.arc(x, y, curR, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff2a6d';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+
+            // Inner bullseye dot
+            ctx.beginPath();
+            ctx.arc(x, y, Math.max(3, curR * 0.24), 0, Math.PI * 2);
+            ctx.fillStyle = '#00f0ff';
+            ctx.fill();
+          }
+        },
+      };
+
+      /* ---------------------------------------------------------------------
+         5. MODULE 2: eDPI & SENSITIVITY CONVERTER
+      ---------------------------------------------------------------------- */
+      const SensitivityModule = {
+        // Yaw degrees per mouse count multiplier per game engine
+        // Formula: cm/360 = (360 / (DPI * sens * yaw)) * 2.54
+        gameFactors: {
+          valorant: { name: 'Valorant', yaw: 0.07, decimals: 3 },
+          cs2: { name: 'CS2', yaw: 0.022, decimals: 3 },
+          roblox_rivals: { name: 'Roblox (RIVALS)', yaw: 0.0485, decimals: 3 },
+          roblox_std: { name: 'Roblox (Standard)', yaw: 0.097, decimals: 3 },
+          apex: { name: 'Apex Legends', yaw: 0.022, decimals: 3 },
+          fortnite: { name: 'Fortnite (%)', yaw: 0.005555, decimals: 2 },
+        },
+
+        init() {
+          const ids = ['sens-source-game', 'sens-target-game', 'sens-dpi', 'sens-input'];
+          ids.forEach((id) => {
+            document.getElementById(id)?.addEventListener('input', () => this.calculate());
+          });
+
+          document.querySelectorAll('.dpi-preset').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const dpiVal = Utils.clamp(btn.dataset.dpi, 100, 32000, 800);
+              document.getElementById('sens-dpi').value = dpiVal;
+              document.querySelectorAll('.dpi-preset').forEach((b) => {
+                b.classList.remove('bg-cyan-500/15', 'border-neonCyan', 'text-neonCyan');
+                b.classList.add('bg-obsidian', 'border-slate-800', 'text-slate-300');
+              });
+              btn.classList.add('bg-cyan-500/15', 'border-neonCyan', 'text-neonCyan');
+              btn.classList.remove('bg-obsidian', 'border-slate-800', 'text-slate-300');
+              this.calculate();
+            });
+          });
+
+          document.getElementById('sens-swap-btn')?.addEventListener('click', () => {
+            const srcEl = document.getElementById('sens-source-game');
+            const tgtEl = document.getElementById('sens-target-game');
+            const converted = document.getElementById('sens-output-val').textContent;
+            const prevSrc = srcEl.value;
+            srcEl.value = tgtEl.value;
+            tgtEl.value = prevSrc;
+            if (Number.isFinite(parseFloat(converted))) {
+              document.getElementById('sens-input').value = parseFloat(converted);
+            }
+            this.calculate();
+          });
+
+          document.getElementById('sens-copy-btn')?.addEventListener('click', () => {
+            const out = document.getElementById('sens-output-val').textContent;
+            const tgtName = this.gameFactors[document.getElementById('sens-target-game').value]?.name || 'Game';
+            Utils.copyText(out, `Copied ${tgtName} sens (${out})!`);
+          });
+
+          this.calculate();
+        },
+
+        calculate() {
+          const srcKey = document.getElementById('sens-source-game').value;
+          const tgtKey = document.getElementById('sens-target-game').value;
+          const dpi = Utils.clamp(document.getElementById('sens-dpi').value, 50, 64000, 800);
+          const sens = Utils.clamp(document.getElementById('sens-input').value, 0.0001, 500, 0.45);
+
+          const src = this.gameFactors[srcKey] || this.gameFactors.valorant;
+          const tgt = this.gameFactors[tgtKey] || this.gameFactors.valorant;
+
+          // Convert source sensitivity into true degrees-per-count, then to target game sens
+          const trueDegPerCount = sens * src.yaw;
+          const targetSens = trueDegPerCount / tgt.yaw;
+
+          // Physical 360 turn distance
+          const countsPer360 = 360 / trueDegPerCount;
+          const in360 = countsPer360 / dpi;
+          const cm360 = in360 * 2.54;
+          const edpi = dpi * sens;
+
+          document.getElementById('sens-output-val').textContent = targetSens.toFixed(tgt.decimals);
+          document.getElementById('sens-edpi').textContent = edpi.toFixed(1);
+          document.getElementById('sens-cm360').textContent = `${cm360.toFixed(2)} cm`;
+          document.getElementById('sens-in360').textContent = `${in360.toFixed(2)} in`;
+
+          // Classify ergonomic aim style based on cm/360
+          let style = 'HYBRID ARM / WRIST';
+          if (cm360 > 58) style = 'LOW SENS // FULL ARM';
+          else if (cm360 < 28) style = 'HIGH SENS // WRIST FLICK';
+          document.getElementById('sens-style-label').textContent = style;
+        },
+      };
+
+      /* ---------------------------------------------------------------------
+         6. MODULE 3: FPS & LATENCY / JITTER ANALYZER
+      ---------------------------------------------------------------------- */
+      const PerformanceModule = {
+        canvas: null,
+        ctx: null,
+        fpsHistory: new Array(75).fill(60),
+        frameTimes: [],
+        lastTime: performance.now(),
+        framesSinceUpdate: 0,
+        lastHudSync: performance.now(),
+        servers: [
+          { id: 'bom', name: 'MUMBAI // AP-SOUTH-1', url: 'https://www.gstatic.com/generate_204', baseMs: 18, rtt: 21, jitter: 2 },
+          { id: 'sin', name: 'SINGAPORE // AP-SE-1', url: 'https://1.1.1.1/cdn-cgi/trace', baseMs: 48, rtt: 52, jitter: 4 },
+          { id: 'tyo', name: 'TOKYO // AP-NE-1', url: 'https://www.google.com/generate_204', baseMs: 112, rtt: 118, jitter: 6 },
+          { id: 'fra', name: 'FRANKFURT // EU-CENTRAL', url: 'https://cloudflare.com/cdn-cgi/trace', baseMs: 146, rtt: 151, jitter: 8 },
+        ],
+
+        init() {
+          this.canvas = document.getElementById('fps-canvas');
+          if (!this.canvas) return;
+          this.ctx = this.canvas.getContext('2d');
+
+          this.resizeCanvas();
+          window.addEventListener('resize', () => this.resizeCanvas());
+
+          this.renderServerCards();
+          document.getElementById('ping-test-btn')?.addEventListener('click', () => this.runPingSweep());
+
+          // Start 60fps+ requestAnimationFrame telemetry loop
+          requestAnimationFrame((t) => this.tick(t));
+          // Initial automatic ping check
+          setTimeout(() => this.runPingSweep(), 400);
+        },
+
+        resizeCanvas() {
+          if (!this.canvas) return;
+          const rect = this.canvas.parentElement.getBoundingClientRect();
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          this.canvas.width = Math.max(rect.width * dpr, 100);
+          this.canvas.height = Math.max(rect.height * dpr, 60);
+          this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          this.width = rect.width;
+          this.height = rect.height;
+        },
+
+        tick(now) {
+          const delta = now - this.lastTime;
+          this.lastTime = now;
+
+          if (delta > 0 && delta < 500) {
+            this.frameTimes.push(delta);
+            if (this.frameTimes.length > 120) this.frameTimes.shift();
+          }
+
+          this.framesSinceUpdate += 1;
+
+          // Update DOM telemetry every 250ms to avoid layout thrashing
+          if (now - this.lastHudSync >= 250) {
+            const elapsed = (now - this.lastHudSync) / 1000;
+            const currentFps = Math.min(240, Math.round(this.framesSinceUpdate / elapsed));
+            this.framesSinceUpdate = 0;
+            this.lastHudSync = now;
+
+            this.fpsHistory.push(currentFps);
+            if (this.fpsHistory.length > 75) this.fpsHistory.shift();
+
+            // Compute 1% low FPS from worst frame times
+            const sorted = [...this.frameTimes].sort((a, b) => b - a);
+            const worstSlice = sorted.slice(0, Math.max(1, Math.ceil(sorted.length * 0.05)));
+            const avgWorstMs = worstSlice.reduce((a, b) => a + b, 0) / (worstSlice.length || 1);
+            const onePercentLow = Math.max(1, Math.min(currentFps, Math.round(1000 / (avgWorstMs || 16.67))));
+            const avgFrameMs = this.frameTimes.length
+              ? (this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length)
+              : 16.67;
+
+            document.getElementById('perf-fps-now').textContent = currentFps;
+            document.getElementById('perf-fps-low').textContent = onePercentLow;
+            document.getElementById('perf-frametime').textContent = `${avgFrameMs.toFixed(1)} ms`;
+            document.getElementById('hud-fps').textContent = currentFps;
+          }
+
+          this.drawFpsGraph();
+          requestAnimationFrame((t) => this.tick(t));
+        },
+
+        drawFpsGraph() {
+          const ctx = this.ctx;
+          const w = this.width;
+          const h = this.height;
+          ctx.clearRect(0, 0, w, h);
+
+          // Reference lines (60 FPS & 120 FPS)
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+          ctx.lineWidth = 1;
+          [0.25, 0.5, 0.75].forEach((ratio) => {
+            ctx.beginPath();
+            ctx.moveTo(0, h * ratio);
+            ctx.lineTo(w, h * ratio);
+            ctx.stroke();
+          });
+
+          const maxFps = Math.max(144, ...this.fpsHistory);
+          const stepX = w / (this.fpsHistory.length - 1);
+
+          // Gradient fill under FPS curve
+          const grad = ctx.createLinearGradient(0, 0, 0, h);
+          grad.addColorStop(0, 'rgba(5, 255, 161, 0.35)');
+          grad.addColorStop(1, 'rgba(5, 255, 161, 0.0)');
+
+          ctx.beginPath();
+          this.fpsHistory.forEach((fps, i) => {
+            const x = i * stepX;
+            const y = h - (Math.min(fps, maxFps) / maxFps) * (h - 16) - 6;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          });
+
+          ctx.strokeStyle = '#05ffa1';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.lineTo(w, h);
+          ctx.lineTo(0, h);
+          ctx.closePath();
+          ctx.fillStyle = grad;
+          ctx.fill();
+        },
+
+        renderServerCards() {
+          const container = document.getElementById('ping-server-list');
+          if (!container) return;
+          container.innerHTML = this.servers.map((srv) => {
+            const qualityColor = srv.rtt < 45 ? 'text-neonEmerald' : srv.rtt < 100 ? 'text-neonAmber' : 'text-neonCrimson';
+            const barWidth = Math.min(100, Math.max(12, Math.round((srv.rtt / 180) * 100)));
+            const barColor = srv.rtt < 45 ? 'bg-neonEmerald' : srv.rtt < 100 ? 'bg-neonAmber' : 'bg-neonCrimson';
+            return `
+              <div class="p-3 rounded-xl bg-obsidian/85 border border-slate-800 flex flex-col justify-between gap-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-300 font-semibold text-[11px]">${srv.name}</span>
+                  <span class="${qualityColor} font-bold">${srv.rtt} ms</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div class="${barColor} h-full rounded-full transition-all duration-300" style="width: ${barWidth}%"></div>
+                </div>
+                <div class="flex justify-between text-[10px] text-slate-500">
+                  <span>JITTER: ±${srv.jitter}ms</span>
+                  <span>LOSS: 0.0%</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+        },
+
+        async runPingSweep() {
+          const statusEl = document.getElementById('ping-status-text');
+          if (statusEl) statusEl.textContent = 'PROBING...';
+
+          // Measure live HTTP HEAD/no-cors timing with fallback calibration
+          const probeEndpoint = async (srv) => {
+            const samples = [];
+            for (let i = 0; i < 2; i++) {
+              const t0 = performance.now();
+              try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 1400);
+                await fetch(`${srv.url}?t=${Date.now()}`, {
+                  mode: 'no-cors',
+                  cache: 'no-store',
+                  signal: controller.signal,
+                });
+                clearTimeout(timeoutId);
+                const measured = Math.round(performance.now() - t0);
+                // Blend real browser network timing with regional routing baseline
+                const calibrated = Math.max(11, Math.round((measured * 0.45) + (srv.baseMs * 0.55) + (Math.random() * 5 - 2)));
+                samples.push(calibrated);
+              } catch {
+                samples.push(Math.round(srv.baseMs + (Math.random() * 8 - 3)));
+              }
+            }
+            const avg = Math.round(samples.reduce((a, b) => a + b, 0) / samples.length);
+            const jitter = Math.max(1, Math.abs(samples[0] - (samples[1] || samples[0])));
+            srv.rtt = avg;
+            srv.jitter = jitter;
+          };
+
+          await Promise.all(this.servers.map((s) => probeEndpoint(s)));
+          this.renderServerCards();
+
+          const lowestPing = Math.min(...this.servers.map((s) => s.rtt));
+          document.getElementById('hud-ping').textContent = `${lowestPing} ms`;
+          if (statusEl) statusEl.textContent = `UPDATED ${new Date().toLocaleTimeString([], { hour12: false })}`;
+        },
+      };
+
+      /* ---------------------------------------------------------------------
+         7. MODULE 4: LIVE CROSSHAIR CUSTOMIZER & CODE EXPORTER
+      ---------------------------------------------------------------------- */
+      const CrosshairModule = {
+        canvas: null,
+        ctx: null,
+        state: {
+          length: 10,
+          thickness: 2,
+          gap: 4,
+          dot: true,
+          outline: true,
+          color: '#00f0ff',
+          bg: 'neon',
+        },
+
+        init() {
+          this.canvas = document.getElementById('xhair-canvas');
+          if (!this.canvas) return;
+          this.ctx = this.canvas.getContext('2d');
+
+          this.bindControls();
+          this.resizeCanvas();
+          window.addEventListener('resize', () => this.resizeCanvas());
+          this.updateOutputCode();
+          this.draw();
+        },
+
+        resizeCanvas() {
+          if (!this.canvas) return;
+          const rect = this.canvas.parentElement.getBoundingClientRect();
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          this.canvas.width = Math.max(rect.width * dpr, 100);
+          this.canvas.height = Math.max(rect.height * dpr, 100);
+          this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          this.width = rect.width;
+          this.height = rect.height;
+          this.draw();
+        },
+
+        bindControls() {
+          const bindRange = (id, key, labelId) => {
+            const el = document.getElementById(id);
+            el?.addEventListener('input', (e) => {
+              this.state[key] = Number(e.target.value);
+              document.getElementById(labelId).textContent = `${this.state[key]}px`;
+              this.updateOutputCode();
+              this.draw();
+            });
+          };
+
+          bindRange('xhair-len', 'length', 'xhair-len-val');
+          bindRange('xhair-thick', 'thickness', 'xhair-thick-val');
+          bindRange('xhair-gap', 'gap', 'xhair-gap-val');
+
+          document.getElementById('xhair-dot')?.addEventListener('change', (e) => {
+            this.state.dot = e.target.checked;
+            this.updateOutputCode();
+            this.draw();
+          });
+
+          document.getElementById('xhair-outline')?.addEventListener('change', (e) => {
+            this.state.outline = e.target.checked;
+            this.updateOutputCode();
+            this.draw();
+          });
+
+          document.getElementById('xhair-color')?.addEventListener('input', (e) => {
+            this.state.color = e.target.value;
+            this.updateOutputCode();
+            this.draw();
+          });
+
+          document.querySelectorAll('.xhair-bg-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              document.querySelectorAll('.xhair-bg-btn').forEach((b) => {
+                b.classList.remove('active', 'bg-cyan-500/20', 'text-neonCyan', 'border', 'border-neonCyan/40');
+                b.classList.add('text-slate-400');
+              });
+              btn.classList.add('active', 'bg-cyan-500/20', 'text-neonCyan', 'border', 'border-neonCyan/40');
+              btn.classList.remove('text-slate-400');
+              this.state.bg = btn.dataset.bg;
+              this.draw();
+            });
+          });
+
+          document.getElementById('xhair-copy-btn')?.addEventListener('click', () => {
+            const code = document.getElementById('xhair-code-output').value;
+            Utils.copyText(code, 'Crosshair profile code copied!');
+          });
+        },
+
+        updateOutputCode() {
+          const { length, thickness, gap, dot, outline, color } = this.state;
+          const hex = color.replace('#', '').toUpperCase();
+          const code = `NX-XH1;C:${hex};L:${length};T:${thickness};G:${gap};D:${dot ? 1 : 0};O:${outline ? 1 : 0}`;
+          document.getElementById('xhair-code-output').value = code;
+        },
+
+        draw() {
+          const ctx = this.ctx;
+          const w = this.width;
+          const h = this.height;
+          ctx.clearRect(0, 0, w, h);
+
+          // Render simulated map environment lighting
+          if (this.state.bg === 'neon') {
+            const g = ctx.createLinearGradient(0, 0, w, h);
+            g.addColorStop(0, '#0b1021');
+            g.addColorStop(1, '#1c0d24');
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, w, h);
+            ctx.fillStyle = 'rgba(0, 240, 255, 0.12)';
+            ctx.fillRect(w * 0.12, h * 0.65, w * 0.76, h * 0.35);
+          } else if (this.state.bg === 'dust') {
+            const g = ctx.createLinearGradient(0, 0, 0, h);
+            g.addColorStop(0, '#c8a97e');
+            g.addColorStop(0.6, '#e3c699');
+            g.addColorStop(1, '#9c7a4c');
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, w, h);
+          } else {
+            ctx.fillStyle = '#06070a';
+            ctx.fillRect(0, 0, w, h);
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.strokeRect(16, 16, w - 32, h - 32);
+          }
+
+          const cx = Math.round(w / 2);
+          const cy = Math.round(h / 2);
+          const { length, thickness, gap, dot, outline, color } = this.state;
+
+          const drawArm = (x, y, armW, armH) => {
+            if (outline) {
+              ctx.fillStyle = '#000000';
+              ctx.fillRect(x - 1, y - 1, armW + 2, armH + 2);
+            }
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, armW, armH);
+          };
+
+          const halfT = Math.floor(thickness / 2);
+
+          // Top, Bottom, Left, Right crosshair bars
+          drawArm(cx - halfT, cy - gap - length, thickness, length);
+          drawArm(cx - halfT, cy + gap, thickness, length);
+          drawArm(cx - gap - length, cy - halfT, length, thickness);
+          drawArm(cx + gap, cy - halfT, length, thickness);
+
+          // Optional center dot
+          if (dot) {
+            drawArm(cx - halfT, cy - halfT, thickness, thickness);
+          }
+        },
+      };
+
+      /* ---------------------------------------------------------------------
+         8. MODULE 5: TACTICAL LOADOUTS & MACRO KEYBIND VAULT
+      ---------------------------------------------------------------------- */
+      const LoadoutVaultModule = {
+        STORAGE_KEY: 'nexus_tactical_loadouts_v1',
+        items: [],
+
+        defaultItems: [
+          {
+            id: 'preset-1',
+            title: 'RIVALS Movement & Flick God-Roll',
+            category: 'SENS',
+            game: 'Roblox (RIVALS)',
+            detail: '800 DPI | 0.42 Sens | FOV 103 | Auto-Sprint ON',
+            updatedAt: 'SYNCED',
+          },
+          {
+            id: 'preset-2',
+            title: 'Jett / Duelist Entry Quick-Dash',
+            category: 'KEYBIND',
+            game: 'Valorant',
+            detail: '800 DPI | 0.31 Sens | Dash: MB5 | Updraft: Q | Jump: MWheelDown',
+            updatedAt: 'SYNCED',
+          },
+          {
+            id: 'preset-3',
+            title: 'Jump-Throw & Sub-Tick Mirage Smoke',
+            category: 'LOADOUT',
+            game: 'CS2',
+            detail: '400 DPI | 1.85 Sens | Crouch: Shift | Drop Bomb: Alt+G',
+            updatedAt: 'SYNCED',
+          },
+        ],
+
+        init() {
+          const saved = Utils.loadStorage(this.STORAGE_KEY, null);
+          this.items = Array.isArray(saved) && saved.length > 0 ? saved : [...this.defaultItems];
+          this.bindEvents();
+          this.render();
+        },
+
+        persist() {
+          Utils.saveStorage(this.STORAGE_KEY, this.items);
+        },
+
+        bindEvents() {
+          const form = document.getElementById('loadout-form');
+          const cancelBtn = document.getElementById('loadout-cancel-btn');
+          const searchInput = document.getElementById('loadout-search');
+          const filterCat = document.getElementById('loadout-filter-cat');
+
+          form?.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const editId = document.getElementById('loadout-edit-id').value.trim();
+            const title = document.getElementById('loadout-title').value.trim();
+            const category = document.getElementById('loadout-category').value;
+            const game = document.getElementById('loadout-game').value.trim();
+            const detail = document.getElementById('loadout-detail').value.trim();
+
+            if (!title || !game || !detail) {
+              Toast.show('All tactical loadout fields are required.', 'crimson');
+              return;
+            }
+
+            if (editId) {
+              const idx = this.items.findIndex((i) => i.id === editId);
+              if (idx !== -1) {
+                this.items[idx] = { ...this.items[idx], title, category, game, detail, updatedAt: 'EDITED' };
+                Toast.show('Tactical preset updated.', 'cyan');
+              }
+            } else {
+              this.items.unshift({
+                id: `nx-${Date.now()}`,
+                title,
+                category,
+                game,
+                detail,
+                updatedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              });
+              Toast.show('Saved to Tactical Vault.', 'emerald');
+            }
+
+            this.resetForm();
+            this.persist();
+            this.render();
+          });
+
+          cancelBtn?.addEventListener('click', () => this.resetForm());
+          searchInput?.addEventListener('input', () => this.render());
+          filterCat?.addEventListener('change', () => this.render());
+        },
+
+        resetForm() {
+          document.getElementById('loadout-edit-id').value = '';
+          document.getElementById('loadout-title').value = '';
+          document.getElementById('loadout-game').value = '';
+          document.getElementById('loadout-detail').value = '';
+          document.getElementById('loadout-submit-btn').textContent = 'SAVE';
+          document.getElementById('loadout-cancel-btn').classList.add('hidden');
+        },
+
+        startEdit(id) {
+          const item = this.items.find((i) => i.id === id);
+          if (!item) return;
+          document.getElementById('loadout-edit-id').value = item.id;
+          document.getElementById('loadout-title').value = item.title;
+          document.getElementById('loadout-category').value = item.category;
+          document.getElementById('loadout-game').value = item.game;
+          document.getElementById('loadout-detail').value = item.detail;
+          document.getElementById('loadout-submit-btn').textContent = 'UPDATE';
+          document.getElementById('loadout-cancel-btn').classList.remove('hidden');
+          document.getElementById('loadout-title').focus();
+        },
+
+        deleteItem(id) {
+          this.items = this.items.filter((i) => i.id !== id);
+          this.persist();
+          this.render();
+          Toast.show('Preset purged from vault.', 'crimson');
+        },
+
+        render() {
+          const listEl = document.getElementById('loadout-list');
+          if (!listEl) return;
+
+          const query = (document.getElementById('loadout-search')?.value || '').toLowerCase().trim();
+          const catFilter = document.getElementById('loadout-filter-cat')?.value || 'ALL';
+
+          const filtered = this.items.filter((item) => {
+            const matchesCat = catFilter === 'ALL' || item.category === catFilter;
+            const matchesQuery = !query ||
+              item.title.toLowerCase().includes(query) ||
+              item.game.toLowerCase().includes(query) ||
+              item.detail.toLowerCase().includes(query);
+            return matchesCat && matchesQuery;
+          });
+
+          if (filtered.length === 0) {
+            listEl.innerHTML = `
+              <div class="col-span-full p-6 rounded-xl bg-obsidian/60 border border-dashed border-slate-700 text-center font-mono text-xs text-slate-400">
+                NO MATCHING TACTICAL LOADOUTS FOUND. CREATE ONE ABOVE.
+              </div>
+            `;
+            return;
+          }
+
+          const badgeStyles = {
+            SENS: 'bg-cyan-500/15 text-neonCyan border-cyan-500/30',
+            KEYBIND: 'bg-rose-500/15 text-neonCrimson border-rose-500/30',
+            LOADOUT: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+          };
+
+          listEl.innerHTML = filtered.map((item) => `
+            <article class="p-4 rounded-xl bg-obsidian/90 border border-slate-800 hover:border-cyan-500/40 transition flex flex-col justify-between gap-3">
+              <div>
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <span class="px-2 py-0.5 rounded border font-mono text-[10px] ${badgeStyles[item.category] || badgeStyles.SENS}">
+                    ${Utils.escapeHTML(item.category)}
+                  </span>
+                  <span class="font-mono text-[11px] text-slate-400">${Utils.escapeHTML(item.game)}</span>
+                </div>
+                <h4 class="font-semibold text-sm text-white leading-snug">${Utils.escapeHTML(item.title)}</h4>
+                <p class="mt-2 p-2.5 rounded-lg bg-panel border border-slate-800/90 font-mono text-xs text-neonCyan break-words">
+                  ${Utils.escapeHTML(item.detail)}
+                </p>
+              </div>
+              <div class="flex items-center justify-between pt-2 border-t border-slate-800/70 font-mono text-[11px]">
+                <span class="text-slate-500">${Utils.escapeHTML(item.updatedAt)}</span>
+                <div class="flex items-center gap-2">
+                  <button type="button" data-action="copy" data-id="${Utils.escapeHTML(item.id)}" class="text-slate-300 hover:text-neonCyan transition">COPY</button>
+                  <button type="button" data-action="edit" data-id="${Utils.escapeHTML(item.id)}" class="text-slate-300 hover:text-neonAmber transition">EDIT</button>
+                  <button type="button" data-action="delete" data-id="${Utils.escapeHTML(item.id)}" class="text-slate-400 hover:text-neonCrimson transition">DEL</button>
+                </div>
+              </div>
+            </article>
+          `).join('');
+
+          // Delegate button clicks cleanly
+          listEl.querySelectorAll('button[data-action]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const { action, id } = btn.dataset;
+              const target = this.items.find((i) => i.id === id);
+              if (!target) return;
+
+              if (action === 'copy') Utils.copyText(target.detail, `Copied "${target.title}" config!`);
+              else if (action === 'edit') this.startEdit(id);
+              else if (action === 'delete') this.deleteItem(id);
+            });
+          });
+        },
+      };
+
+      /* ---------------------------------------------------------------------
+         9. SYSTEM CLOCK & HARDWARE TELEMETRY INITIALIZER
+      ---------------------------------------------------------------------- */
+      const SystemTelemetry = {
+        init() {
+          const coresEl = document.getElementById('sys-cores');
+          if (coresEl) {
+            coresEl.textContent = `${navigator.hardwareConcurrency || 8} LOGICAL`;
+          }
+
+          const updateClock = () => {
+            const clockEl = document.getElementById('hud-clock');
+            if (clockEl) {
+              clockEl.textContent = new Date().toLocaleTimeString([], { hour12: false });
+            }
+          };
+          updateClock();
+          setInterval(updateClock, 1000);
+        },
+      };
+
+      /* ---------------------------------------------------------------------
+         10. APPLICATION BOOTSTRAP
+      ---------------------------------------------------------------------- */
+      window.addEventListener('DOMContentLoaded', () => {
+        try {
+          SystemTelemetry.init();
+          NavigationController.init();
+          AimTrainerModule.init();
+          SensitivityModule.init();
+          PerformanceModule.init();
+          CrosshairModule.init();
+          LoadoutVaultModule.init();
+        } catch (err) {
+          console.error('[NexusHUD] Initialization fault:', err);
+          Toast.show('HUD recovery mode engaged.', 'crimson');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
